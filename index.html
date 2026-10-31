@@ -248,10 +248,23 @@ var ENGINE="/* ساحل هوشمند — موتور گزارش (اجرا در م
     d.querySelector('button').onclick=function(){LS('sai_api','');LS('sai_key','');idbSet('boot',null).then(function(){location.reload()})};document.body.appendChild(d)}
   idbGet('boot').then(function(c){
     var cached=c&&c.key===KEY&&c.b;if(cached){BOOT=cached;start(cached)}   // شروع آنی از داده‌ی ذخیره‌شده
-    fetchBoot(false).then(function(b){BOOT=b;idbSet('boot',{key:KEY,b:b});if(!started)start(b);else document.dispatchEvent(new Event('sai-fresh'))})
+    fetchBoot(false).then(function(b){
+  var oldSig=cached&&JSON.stringify([cached.brand,cached.cfg,cached.cmds,cached.ui]);
+  BOOT=b;idbSet('boot',{key:KEY,b:b});
+  if(!started)start(b);
+  else if(oldSig&&oldSig!==JSON.stringify([b.brand,b.cfg,b.cmds,b.ui])&&!sessionStorage.getItem('sai_rl')){sessionStorage.setItem('sai_rl','1');setTimeout(function(){location.reload()},400)}
+  else document.dispatchEvent(new Event('sai-fresh'));
+})
       .catch(function(e){if(e.message==='unauthorized'){idbSet('boot',null);if(started)location.reload();else showErr(e)}else if(!started)showErr(e)});
   });
-  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
+ if('serviceWorker' in navigator&&location.protocol==='https:'){
+  var hadSW=!!navigator.serviceWorker.controller,rl=false;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    reg.update();
+    document.addEventListener('visibilitychange',function(){if(!document.hidden)reg.update()});
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){if(!hadSW||rl)return;rl=true;location.reload()});
+}
 })();
 </script>
 </body>
