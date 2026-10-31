@@ -246,7 +246,20 @@ try {
     fetchBoot(false).then(function(b){BOOT=b;idbSet('boot',{key:KEY,b:b});if(!started)start(b);else document.dispatchEvent(new Event('sai-fresh'))})
       .catch(function(e){if(e.message==='unauthorized'){idbSet('boot',null);if(started)location.reload();else showErr(e)}else if(!started)showErr(e)});
   });
-  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(function(){});
+  if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js?v=18').then(function(reg){
+    reg.update();
+    reg.addEventListener('updatefound', function(){
+      var w = reg.installing;
+      if (w) w.addEventListener('statechange', function(){
+        if (w.state === 'activated' && navigator.serviceWorker.controller) {
+          // کش جدید فعال شد؛ یک‌بار رفرش کن تا کد جدید بیاید
+          location.reload();
+        }
+      });
+    });
+  }).catch(function(){});
+}
 })();
 </script>
 </body>
