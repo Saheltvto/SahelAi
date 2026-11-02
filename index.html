@@ -73,11 +73,13 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(-
   function idbGet(k){return idb().then(function(db){return new Promise(function(res){var q=db.transaction('k').objectStore('k').get(k);q.onsuccess=function(){res(q.result)};q.onerror=function(){res(null)}})}).catch(function(){return null})}
   function idbSet(k,v){return idb().then(function(db){return new Promise(function(res){var tx=db.transaction('k','readwrite');tx.objectStore('k').put(v,k);tx.oncomplete=function(){res()};tx.onerror=function(){res()};tx.onabort=function(){res()}})}).catch(function(){})}
   var BOOT=null,started=false;
-  function fetchBoot(force){return fetch(API+(API.indexOf('?')>-1?'&':'?')+'action=boot&key='+encodeURIComponent(KEY)+(force?'&force=1':'')).then(function(r){return r.json()}).then(function(b){if(b.error)throw new Error('unauthorized');b.cfg.ai=false;return b})}
+  function fetchBoot(force){return fetch(API+(API.indexOf('?')>-1?'&':'?')+'action=boot&key='+encodeURIComponent(KEY)+(force?'&(force?'&force=1':'')+'&z='+(typeof DecompressionStream==='function'?'1':'0')force=1':'')).then(function(r){return r.json()}).then(function(b){if(b.error)throw new Error('unauthorized');b.cfg.ai=false;return b})}
 
   /* پل google.script.run برای ویجتی که از سرور آمده */
-  var H={sahelData:function(f){if(!f&&BOOT)return Promise.resolve(JSON.stringify(BOOT.data));return fetchBoot(!!f).then(function(b){BOOT=b;idbSet('boot',{key:KEY,b:b});return JSON.stringify(b.data)}).catch(function(){return BOOT?JSON.stringify(BOOT.data):Promise.reject(new Error('آفلاین و بدون داده‌ی ذخیره‌شده'))})},
-    sahelDataZ:function(){return Promise.reject(new Error('z'))},   // ویجت خودش به sahelData برمی‌گردد
+              function inflateZ(z){return new Promise(function(res,rej){try{var bin=atob(z),n=bin.length,u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text().then(res,rej)}catch(e){rej(e)}})}
+  function dataJson(b){return b.dataZ?inflateZ(b.dataZ):Promise.resolve(JSON.stringify(b.data))}                
+  var H={sahelData:function(f){if(!f&&BOOT)return dataJson(BOOT);return fetchBoot(!!f).then(function(b){BOOT=b;idbSet('boot',{key:KEY,b:b});return dataJson(b)}).catch(function(){return BOOT?dataJson(BOOT):Promise.reject(new Error('آفلاین و بدون داده‌ی ذخیره‌شده'))})},
+    sahelDataZ:function(){return Promise.reject(new sahelDataZ:function(f){if(!f&&BOOT&&BOOT.dataZ)return Promise.resolve(BOOT.dataZ);return fetchBoot(!!f).then(function(b){BOOT=b;idbSet('boot',{key:KEY,b:b});if(b.dataZ)return b.dataZ;throw new Error('z')})},Error('z'))},   // ویجت خودش به sahelData برمی‌گردد
     sahelRates:function(){return BOOT&&BOOT.rates||null},sahelNews:function(){return BOOT&&BOOT.news||[]},
     sahelClearCache:function(){BOOT=null;return idbSet('boot',null).then(function(){return 'ok'})},
     sahelClearAll:function(withBrain){BOOT=null;if(withBrain){LS('sai_alias','{}')}return idbSet('boot',null).then(function(){return 'ok'})},
@@ -125,7 +127,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(-
     });
   });
 
-  if('serviceWorker' in navigator&&location.protocol==='https:'){
+if('serviceWorker'in navigator&&location.protocol==='https:'&&!window.Capacitor){
     var hadSW=!!navigator.serviceWorker.controller,rl=false;
     navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
       reg.update();
