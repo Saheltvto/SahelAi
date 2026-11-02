@@ -1,5 +1,5 @@
 /* ساحل هوشمند — سرویس‌ورکر: اول شبکه، بعد کش (آفلاین) */
-var V = 'sahel-v24', SHELL = ['./', 'index.html', 'manifest.webmanifest'];
+var V = 'sahel-v25', SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(V).then(function (c) {
     return Promise.all(SHELL.map(function (u) { return c.add(new Request(u, { cache: 'reload' })).catch(function () {}); });
