@@ -1,5 +1,7 @@
 {
   "appId": "ir.sahel.ai",
   "appName": "ساحل هوشمند",
-  "webDir": "www"
+  "webDir": "www",
+  "backgroundColor": "#052B35",
+  "server": { "androidScheme": "https" }
 }
