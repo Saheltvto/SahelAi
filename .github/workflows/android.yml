@@ -2,7 +2,10 @@ name: Build Android APK
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md']
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -15,12 +18,43 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - run: mkdir -p www && cp index.html sw.js manifest.webmanifest icon.svg www/
+      - name: Web files
+        run: |
+          mkdir -p www
+          cp index.html sw.js manifest.webmanifest www/
+          cp icon*.png icon.svg www/ 2>/dev/null || true
+      - name: Logo (همان لوگوی GitHub)
+        run: |
+          mkdir -p assets
+          [ -f assets/logo.png ] || curl -fsSL "https://lh3.googleusercontent.com/d/1MjBP1nitG_R3pTYPfc-BYBwzeuEZs5aO=s1024" -o assets/logo.png
+          convert assets/logo.png -resize 1024x1024 -background none -gravity center -extent 1024x1024 assets/icon-only.png
+          convert assets/logo.png -resize 680x680 -background none -gravity center -extent 1024x1024 assets/icon-foreground.png
+          convert -size 1024x1024 xc:'#0F7C8C' assets/icon-background.png
+          convert -size 2732x2732 xc:'#052B35' \( assets/logo.png -resize 900x900 \) -gravity center -composite assets/splash.png
+          cp assets/splash.png assets/splash-dark.png
       - run: npm install
       - run: npx cap add android
+      - run: npx capacitor-assets generate --android --iconBackgroundColor '#0F7C8C' --iconBackgroundColorDark '#0F7C8C' --splashBackgroundColor '#052B35' --splashBackgroundColorDark '#052B35'
       - run: npx cap sync android
-      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - name: Permissions and version
+        run: |
+          MF=android/app/src/main/AndroidManifest.xml
+          grep -q RECORD_AUDIO $MF || sed -i 's#<application#<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <application#' $MF
+          grep -q RecognitionService $MF || sed -i 's#</manifest>#    <queries><intent><action android:name="android.speech.RecognitionService" /></intent></queries>\n</manifest>#' $MF
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.${{ github.run_number }}\"/" android/app/build.gradle
+      - name: Fixed signing key (برای آپدیت روی نسخهٔ قبلی)
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: sahel-debug-keystore-v1
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk SahelAi.apk
       - uses: actions/upload-artifact@v4
         with:
           name: SahelAi-apk
-          path: android/app/build/outputs/apk/debug/SahelAi.apk
+          path: SahelAi.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-latest
+          name: SahelAi APK
+          files: SahelAi.apk
